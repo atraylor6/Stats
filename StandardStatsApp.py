@@ -192,20 +192,20 @@ uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
+    sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
     try:
-        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
         df = pd.read_excel(uploaded_file, sheet_name=sheet)
-        df.set_index("date", inplace=True)
     except Exception as e:
         st.error(f"❌ Failed to read Excel file: {e}")
-        st.stop()
+     st.stop()
+     df.set_index("date", inplace=True)
 
     benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
 
     if st.button("Generate Statistics"):
         try:
             stats_df = standardStats(df, api_key, benchmarkColumn)
-            st.success("✅ Statistics generated successfully!")
+            st.success("\u2705 Statistics generated successfully!")
             st.dataframe(stats_df)
 
             def to_excel(df):
@@ -222,4 +222,4 @@ if uploaded_file:
             )
 
         except Exception as e:
-            st.error(f"❌ Error: {e}")
+            st.error(f"\u274c Error: {e}")
