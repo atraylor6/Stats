@@ -200,13 +200,12 @@ if uploaded_file:
         st.error(f"❌ Failed to read Excel file: {e}")
         st.stop()
 
-
     benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
 
     if st.button("Generate Statistics"):
         try:
             stats_df = standardStats(df, api_key, benchmarkColumn)
-            st.success("\u2705 Statistics generated successfully!")
+            st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
 
             def to_excel(df):
@@ -223,4 +222,4 @@ if uploaded_file:
             )
 
         except Exception as e:
-            st.error(f"\u274c Error: {e}")
+            st.error(f"❌ Error: {e}")
