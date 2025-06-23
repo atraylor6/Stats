@@ -6,7 +6,7 @@ from scipy.stats import skew
 from fredapi import Fred
 
 # -----------------------------
-# Helper Functions
+# Define All Helper Functions
 # -----------------------------
 
 def annualizedReturn(returns):
@@ -126,7 +126,7 @@ def rolling12MOutUnderPerf(returns, benchmarkColumn, threshold=0.01):
         if col == benchmarkColumn:
             continue
         excess = (
-            (1 + returns[col]).rolling(months).apply(np.prod) - 
+            (1 + returns[col]).rolling(months).apply(np.prod) -
             (1 + returns[benchmarkColumn]).rolling(months).apply(np.prod)
         )
         total = excess.count()
@@ -180,14 +180,6 @@ def standardStats(df, apiKey, benchmarkColumn):
 
     return stats
 
-def to_excel(df):
-    output = BytesIO()
-    df_transposed = df.T
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
-    output.seek(0)
-    return output.getvalue()
-
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -195,6 +187,8 @@ def to_excel(df):
 st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+
+# Predefined API Key
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
@@ -214,11 +208,18 @@ if uploaded_file:
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
 
+            def to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=True, sheet_name='Statistics')
+                return output.getvalue()
+
             st.download_button(
                 label="Download Results as Excel",
                 data=to_excel(stats_df),
                 file_name="financial_statistics_table.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
         except Exception as e:
             st.error(f"❌ Error: {e}")
