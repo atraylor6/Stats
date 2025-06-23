@@ -188,13 +188,14 @@ st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-# Predefined API Key
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
     try:
-        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
-        df = pd.read_excel(uploaded_file, sheet_name=sheet)
+        file_bytes = BytesIO(uploaded_file.read())
+        xls = pd.ExcelFile(file_bytes)
+        sheet = st.selectbox("Select Sheet", xls.sheet_names)
+        df = pd.read_excel(xls, sheet_name=sheet)
         df.set_index("date", inplace=True)
     except Exception as e:
         st.error(f"❌ Failed to read Excel file: {e}")
