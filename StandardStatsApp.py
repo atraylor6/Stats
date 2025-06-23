@@ -206,14 +206,14 @@ if uploaded_file:
             stats_df = standardStats(df, api_key, benchmarkColumn)
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
-            
+           
             def to_excel(df):
                 output = BytesIO()
-                df_transposed = df.T  # Transpose to match screenshot layout
+                df_transposed = df.T
             
-                with pd.ExcelWriter(output, engine='xlsxwriter',
-                                    engine_kwargs={'options': {'nan_inf_to_errors': True}}) as writer:
-                    df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_transposed.to_excel(writer, index=True, sheet_name='Statistics', na_rep="")
+            
                     workbook = writer.book
                     worksheet = writer.sheets['Statistics']
             
@@ -222,18 +222,10 @@ if uploaded_file:
                     cell_format = workbook.add_format({'num_format': '0.00', 'border': 1})
                     index_format = workbook.add_format({'bold': True, 'border': 1})
             
-                    # Apply formatting
-                    worksheet.set_column(0, 0, 30, index_format)  # Metric names
-                    for col_num, value in enumerate(['Metrics'] + list(df_transposed.columns)):
-                        worksheet.write(0, col_num, value, header_format)
-            
-                    for row in range(1, df_transposed.shape[0] + 1):
-                        for col in range(1, df_transposed.shape[1] + 1):
-                            val = df_transposed.iloc[row-1, col-1]
-                            if pd.isna(val):
-                                worksheet.write_blank(row, col, None, cell_format)
-                            else:
-                                worksheet.write_number(row, col, val, cell_format)
+                    # Header row
+                    worksheet.set_row(0, None, header_format)
+                    worksheet.set_column(0, 0, 30, index_format)  # Index column
+                    worksheet.set_column(1, df_transposed.shape[1], 12, cell_format)  # Data columns
             
                 return output.getvalue()
 
