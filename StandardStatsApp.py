@@ -57,8 +57,12 @@ def average10Yr(df, apiKey):
     fred = Fred(api_key=apiKey)
     startDate = df.index.min().strftime('%Y-%m-%d')
     endDate = df.index.max().strftime('%Y-%m-%d')
-    data = fred.get_series('GS10', startDate, endDate)
-    return data.mean()
+    try:
+        data = fred.get_series('GS10', startDate, endDate)
+        return data.mean()
+    except Exception as e:
+        st.error(f"❌ FRED API error: {e}")
+        raise
 
 def sharpeRatio(returns, avg10yr):
     ann_return = returns.apply(annualizedReturn)
