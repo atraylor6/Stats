@@ -201,34 +201,36 @@ if uploaded_file:
         st.stop()
 
     benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
-    
+
     if st.button("Generate Statistics"):
         try:
             stats_df = standardStats(df, api_key, benchmarkColumn)
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
-
-            def to_excel(df):
-                output = BytesIO()
-                df_transposed = df.T.fillna("")  # Replace NaN with blanks
-                
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
-
-                    workbook = writer.book
-                    worksheet = writer.sheets['Statistics']
-
-                    # Define formats
-                    header_format = workbook.add_format({'bold': True, 'bg_color': '#C6EFCE', 'border': 1})
-                    cell_format = workbook.add_format({'num_format': '0.00', 'border': 1})
-                    index_format = workbook.add_format({'bold': True, 'border': 1})
-
-                    worksheet.set_row(0, None, header_format)
-                    worksheet.set_column(0, 0, 30, index_format)
-                    worksheet.set_column(1, df_transposed.shape[1], 12, cell_format)
-
-                output.seek(0)
-                return output.getvalue()
+   
+    def to_excel(df):
+        output = BytesIO()
+        df_transposed = df.T  # Transpose to match screenshot layout
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
+            workbook = writer.book
+            worksheet = writer.sheets['Statistics']
+    
+            # Define formats
+            header_format = workbook.add_format({'bold': True, 'bg_color': '#C6EFCE', 'border': 1})
+            cell_format = workbook.add_format({'num_format': '0.00', 'border': 1})
+            index_format = workbook.add_format({'bold': True, 'border': 1})
+    
+            # Apply formatting
+            worksheet.set_column(0, 0, 30, index_format)  # Metric names
+            for col_num, value in enumerate(df_transposed.columns.insert(0, 'Metrics')):
+                worksheet.write(0, col_num, value, header_format)
+    
+            for row in range(1, df_transposed.shape[0] + 1):
+                for col in range(1, df_transposed.shape[1] + 1):
+                    worksheet.write(row, col, df_transposed.iloc[row-1, col-1], cell_format)
+    
+        return output.getvalue()
 
             st.download_button(
                 label="Download Results as Excel",
@@ -239,4 +241,3 @@ if uploaded_file:
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
-
