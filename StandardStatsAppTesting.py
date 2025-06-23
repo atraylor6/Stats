@@ -184,6 +184,10 @@ def standardStats(df, apiKey, benchmarkColumn):
 # Streamlit UI
 # -----------------------------
 
+# -----------------------------
+# Streamlit UI
+# -----------------------------
+
 st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
@@ -208,16 +212,51 @@ if uploaded_file:
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
 
-            def to_excel(df):
+            def to_excel_formatted(df):
                 output = BytesIO()
+                df_transposed = df.T.reset_index()
+                df_transposed.columns = ['Metrics'] + list(df_transposed.columns[1:])
+
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=True, sheet_name='Statistics')
+                    df_transposed.to_excel(writer, index=False, sheet_name='Statistics', startrow=1)
+
+                    workbook  = writer.book
+                    worksheet = writer.sheets['Statistics']
+
+                    # Header format
+                    header_format = workbook.add_format({
+                        'bold': True,
+                        'bg_color': '#44723c',
+                        'font_color': 'white',
+                        'border': 1
+                    })
+
+                    # Write headers manually with formatting
+                    for col_num, value in enumerate(df_transposed.columns.values):
+                        worksheet.write(0, col_num, value, header_format)
+                        worksheet.set_column(col_num, col_num, 26)  # Set consistent column width
+
+                    # Body cell formatting
+                    body_format = workbook.add_format({
+                        'border': 1,
+                        'num_format': '0.00'
+                    })
+
+                    # Write formatted body cells
+                    for row in range(1, len(df_transposed) + 1):
+                        for col in range(1, len(df_transposed.columns)):
+                            val = df_transposed.iloc[row - 1, col]
+                            if pd.notnull(val):
+                                worksheet.write(row, col, val, body_format)
+
+                    worksheet.freeze_panes(1, 1)
+
                 return output.getvalue()
 
             st.download_button(
                 label="Download Results as Excel",
-                data=to_excel(stats_df),
-                file_name="financial_statistics_table.xlsx",
+                data=to_excel_formatted(stats_df),
+                file_name="formatted_financial_statistics.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
