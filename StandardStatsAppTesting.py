@@ -70,11 +70,11 @@ def to_excel_formatted(df):
             row_format = alt_row_format if row_num % 2 == 0 else cell_format
             for col_num in range(len(df_transposed.columns)):
                 val = df_transposed.iat[row_num - 1, col_num]
-                if isinstance(val, (float, int)) and not pd.isna(val):
+                if isinstance(val, (float, int)) and not (pd.isna(val) or np.isinf(val)):
                     worksheet.write(row_num, col_num, val, row_format)
                 else:
-                    worksheet.write(row_num, col_num, val, text_format)
-
+                    worksheet.write(row_num, col_num, str(val), text_format)
+       
         worksheet.freeze_panes(1, 1)
     return output.getvalue()
 
