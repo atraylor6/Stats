@@ -193,17 +193,14 @@ api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
     try:
-        excel_io = BytesIO(uploaded_file.read())
-        xls = pd.ExcelFile(excel_io)
-        sheet = st.selectbox("Select Sheet", xls.sheet_names)
-        df = pd.read_excel(xls, sheet_name=sheet)
+        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
+        df = pd.read_excel(uploaded_file, sheet_name=sheet)
         df.set_index("date", inplace=True)
     except Exception as e:
         st.error(f"❌ Failed to read Excel file: {e}")
         st.stop()
 
-    possible_benchmarks = [col for col in df.columns if col != "signal"]
-    benchmarkColumn = st.selectbox("Select Benchmark Column", possible_benchmarks)
+    benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
 
     if st.button("Generate Statistics"):
         try:
@@ -211,11 +208,18 @@ if uploaded_file:
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
 
+            def to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=True, sheet_name='Statistics')
+                return output.getvalue()
+
             st.download_button(
                 label="Download Results as Excel",
                 data=to_excel(stats_df),
                 file_name="financial_statistics_table.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
         except Exception as e:
             st.error(f"❌ Error: {e}")
