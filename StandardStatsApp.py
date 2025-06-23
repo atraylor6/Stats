@@ -54,16 +54,17 @@ def trackingError(excessreturns):
     return (excessreturns.std() * np.sqrt(12)) * 100
 
 def average10Yr(df, apiKey):
-    from fredapi import Fred
     try:
+        from fredapi import Fred
         fred = Fred(api_key=apiKey)
         startDate = df.index.min().strftime('%Y-%m-%d')
         endDate = df.index.max().strftime('%Y-%m-%d')
         data = fred.get_series('GS10', startDate, endDate)
         return data.mean()
     except Exception as e:
-        st.warning("⚠️ FRED API unavailable — using static 10-year yield of 3.5%")
-        return 0.035  # fallback yield
+        st.warning(f"⚠️ FRED API error: {e} — using fallback 10-year yield of 3.5%")
+        return 3.5  # fallback annual yield in %
+
 
 def sharpeRatio(returns, avg10yr):
     ann_return = returns.apply(annualizedReturn)
