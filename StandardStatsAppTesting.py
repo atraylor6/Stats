@@ -184,14 +184,6 @@ def standardStats(df, apiKey, benchmarkColumn):
 # Streamlit UI
 # -----------------------------
 
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-
-# -----------------------------
-# Streamlit UI
-# -----------------------------
-
 st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
@@ -251,19 +243,27 @@ if uploaded_file:
                         'num_format': '0.00'
                     })
 
+                    text_format = workbook.add_format({
+                        'border': 1
+                    })
+
                     # Write header with formatting
                     for col_num, value in enumerate(df_transposed.columns.values):
                         worksheet.write(0, col_num, value, header_format)
                         worksheet.set_column(col_num, col_num, 26)
 
-                    # Write data rows with alternating row color
+                    # Write data rows with alternating row colors
                     for row_num in range(1, len(df_transposed) + 1):
                         row_format = alt_row_format if row_num % 2 == 0 else cell_format
                         for col_num in range(len(df_transposed.columns)):
-                            value = df_transposed.iloc[row_num - 1, col_num]
-                            worksheet.write(row_num, col_num, value, row_format)
+                            val = df_transposed.iat[row_num - 1, col_num]
+                            # Use number format if it's a float, otherwise fallback
+                            if isinstance(val, (float, int)) and not pd.isna(val):
+                                worksheet.write(row_num, col_num, val, row_format)
+                            else:
+                                worksheet.write(row_num, col_num, val, text_format)
 
-                    # Freeze panes for usability
+                    # Freeze panes below header
                     worksheet.freeze_panes(1, 1)
 
                 return output.getvalue()
@@ -277,4 +277,3 @@ if uploaded_file:
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
-
