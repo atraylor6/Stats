@@ -192,14 +192,9 @@ uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
-    # Optional: check file extension
-    if not uploaded_file.name.endswith(".xlsx"):
-        st.error("❌ Please upload a valid .xlsx file.")
-        st.stop()
-
     try:
-        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
-        df = pd.read_excel(uploaded_file, sheet_name=sheet)
+        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file, engine='openpyxl').sheet_names)
+        df = pd.read_excel(uploaded_file, sheet_name=sheet, engine='openpyxl')
         df.set_index("date", inplace=True)
     except Exception as e:
         st.error(f"❌ Failed to read Excel file: {e}")
