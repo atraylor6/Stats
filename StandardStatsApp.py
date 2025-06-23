@@ -188,44 +188,43 @@ st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
+# Predefined FRED API Key
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
-    try:
-        file_bytes = BytesIO(uploaded_file.read())
-
-        try:
-            xls = pd.ExcelFile(file_bytes)
-        except Exception as e:
-            st.error(f"❌ Failed to parse Excel file. Please ensure it's a valid `.xlsx` file.\n\nError: {e}")
-            st.stop()
-
-        sheet = st.selectbox("Select Sheet", xls.sheet_names)
-
-        try:
-            df = pd.read_excel(xls, sheet_name=sheet)
-        except Exception as e:
-            st.error(f"❌ Failed to read selected sheet: {sheet}\n\nError: {e}")
-            st.stop()
-
-        # Detect 'date' column (case-insensitive)
-        date_col = next((col for col in df.columns if col.strip().lower() == "date"), None)
-        if not date_col:
-            st.error("❌ No column named 'date' found. Please make sure your sheet includes a 'date' column.")
-            st.stop()
-
-        try:
-            df[date_col] = pd.to_datetime(df[date_col])
-            df.set_index(date_col, inplace=True)
-        except Exception as e:
-            st.error(f"❌ Failed to parse 'date' column as datetime.\n\nError: {e}")
-            st.stop()
-
-        benchmarkColumn = st.selectbox(
-            "Select Benchmark Column",
-            [col for col in df.columns if col.strip().lower() != "signal"]
-        )
-
-    except Exception as e:
-        st.error(f"❌ Unexpected error while processing the file: {e}")
+    # Optional: check file extension
+    if not uploaded_file.name.endswith(".xlsx"):
+        st.error("❌ Please upload a valid .xlsx file.")
         st.stop()
+
+    try:
+        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file).sheet_names)
+        df = pd.read_excel(uploaded_file, sheet_name=sheet)
+        df.set_index("date", inplace=True)
+    except Exception as e:
+        st.error(f"❌ Failed to read Excel file: {e}")
+        st.stop()
+
+    benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
+
+    if st.button("Generate Statistics"):
+        try:
+            stats_df = standardStats(df, api_key, benchmarkColumn)
+            st.success("✅ Statistics generated successfully!")
+            st.dataframe(stats_df)
+
+            def to_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df.to_excel(writer, index=True, sheet_name='Statistics')
+                return output.getvalue()
+
+            st.download_button(
+                label="Download Results as Excel",
+                data=to_excel(stats_df),
+                file_name="financial_statistics_table.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+        except Exception as e:
+            st.error(f"❌ Error: {e}")
