@@ -209,9 +209,10 @@ if uploaded_file:
 
                 def to_excel(df):
                     output = BytesIO()
-                    df = df.replace([np.inf, -np.inf], np.nan)
+                    df_clean = df.replace([np.inf, -np.inf], np.nan)  # Replace infs with NaNs
+                    df_clean = df_clean.fillna("")  # Replace NaNs with empty string
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                        df.to_excel(writer, index=True, sheet_name='Statistics')
+                        df_clean.to_excel(writer, index=True, sheet_name='Statistics')
                     return output.getvalue()
 
                 st.download_button(
