@@ -209,19 +209,19 @@ if uploaded_file:
 
                 def to_excel(df):
                     output = BytesIO()
-                    df_clean = df.replace([np.inf, -np.inf], np.nan)  # Replace infs with NaNs
-                    df_clean = df_clean.fillna("")  # Replace NaNs with empty string
+                    df_clean = df.replace([np.inf, -np.inf], np.nan)  # Clean up invalid values
+                    df_clean = df_clean.fillna("")  # Fill NaNs to prevent Excel XML error
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         df_clean.to_excel(writer, index=True, sheet_name='Statistics')
-                    return output.getvalue()
+                    output.seek(0)
+                    return output.read()
 
                 st.download_button(
-                    label="📥 Download Results as Excel",
+                    label="Download Results as Excel",
                     data=to_excel(stats_df),
                     file_name="financial_statistics_table.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-
             except Exception as e:
                 st.error(f"❌ Error while generating stats: {e}")
 
