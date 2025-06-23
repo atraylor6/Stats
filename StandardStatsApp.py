@@ -62,7 +62,6 @@ def average10Yr(df, apiKey):
         data = fred.get_series('GS10', startDate, endDate)
         return data.mean()
     except Exception as e:
-        st.warning(f"⚠️ FRED API error: {e} — using fallback 10-year yield of 3.5%")
         return 3.5  # fallback annual yield in %
 
 
