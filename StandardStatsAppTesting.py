@@ -188,6 +188,10 @@ def standardStats(df, apiKey, benchmarkColumn):
 # Streamlit UI
 # -----------------------------
 
+# -----------------------------
+# Streamlit UI
+# -----------------------------
+
 st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
@@ -214,16 +218,21 @@ if uploaded_file:
 
             def to_excel_formatted(df):
                 output = BytesIO()
-                df_transposed = df.T.reset_index()
+
+                # Remove duplicated index entries like repeated 'Standard Deviation'
+                df_cleaned = df[~df.index.duplicated(keep='first')]
+
+                # Transpose the DataFrame so metrics are rows
+                df_transposed = df_cleaned.T.reset_index()
                 df_transposed.columns = ['Metrics'] + list(df_transposed.columns[1:])
 
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_transposed.to_excel(writer, index=False, sheet_name='Statistics', startrow=1)
 
-                    workbook  = writer.book
+                    workbook = writer.book
                     worksheet = writer.sheets['Statistics']
 
-                    # Header format
+                    # Define formats
                     header_format = workbook.add_format({
                         'bold': True,
                         'bg_color': '#44723c',
@@ -231,24 +240,30 @@ if uploaded_file:
                         'border': 1
                     })
 
-                    # Write headers manually with formatting
-                    for col_num, value in enumerate(df_transposed.columns.values):
-                        worksheet.write(0, col_num, value, header_format)
-                        worksheet.set_column(col_num, col_num, 26)  # Set consistent column width
-
-                    # Body cell formatting
-                    body_format = workbook.add_format({
+                    cell_format = workbook.add_format({
                         'border': 1,
                         'num_format': '0.00'
                     })
 
-                    # Write formatted body cells
-                    for row in range(1, len(df_transposed) + 1):
-                        for col in range(1, len(df_transposed.columns)):
-                            val = df_transposed.iloc[row - 1, col]
-                            if pd.notnull(val):
-                                worksheet.write(row, col, val, body_format)
+                    alt_row_format = workbook.add_format({
+                        'bg_color': '#f2f2f2',
+                        'border': 1,
+                        'num_format': '0.00'
+                    })
 
+                    # Write header with formatting
+                    for col_num, value in enumerate(df_transposed.columns.values):
+                        worksheet.write(0, col_num, value, header_format)
+                        worksheet.set_column(col_num, col_num, 26)
+
+                    # Write data rows with alternating row color
+                    for row_num in range(1, len(df_transposed) + 1):
+                        row_format = alt_row_format if row_num % 2 == 0 else cell_format
+                        for col_num in range(len(df_transposed.columns)):
+                            value = df_transposed.iloc[row_num - 1, col_num]
+                            worksheet.write(row_num, col_num, value, row_format)
+
+                    # Freeze panes for usability
                     worksheet.freeze_panes(1, 1)
 
                 return output.getvalue()
@@ -262,3 +277,4 @@ if uploaded_file:
 
         except Exception as e:
             st.error(f"❌ Error: {e}")
+
