@@ -6,7 +6,7 @@ from scipy.stats import skew
 from fredapi import Fred
 
 # -----------------------------
-# Define All Helper Functions
+# Helper Functions
 # -----------------------------
 
 def annualizedReturn(returns):
@@ -126,7 +126,7 @@ def rolling12MOutUnderPerf(returns, benchmarkColumn, threshold=0.01):
         if col == benchmarkColumn:
             continue
         excess = (
-            (1 + returns[col]).rolling(months).apply(np.prod) -
+            (1 + returns[col]).rolling(months).apply(np.prod) - 
             (1 + returns[benchmarkColumn]).rolling(months).apply(np.prod)
         )
         total = excess.count()
@@ -180,6 +180,14 @@ def standardStats(df, apiKey, benchmarkColumn):
 
     return stats
 
+def to_excel(df):
+    output = BytesIO()
+    df_transposed = df.T
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
+    output.seek(0)
+    return output.getvalue()
+
 # -----------------------------
 # Streamlit UI
 # -----------------------------
@@ -187,8 +195,6 @@ def standardStats(df, apiKey, benchmarkColumn):
 st.title("Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-
-# Predefined API Key
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
@@ -207,30 +213,6 @@ if uploaded_file:
             stats_df = standardStats(df, api_key, benchmarkColumn)
             st.success("✅ Statistics generated successfully!")
             st.dataframe(stats_df)
-   
-    def to_excel(df):
-        output = BytesIO()
-        df_transposed = df.T  # Transpose to match screenshot layout
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
-            workbook = writer.book
-            worksheet = writer.sheets['Statistics']
-    
-            # Define formats
-            header_format = workbook.add_format({'bold': True, 'bg_color': '#C6EFCE', 'border': 1})
-            cell_format = workbook.add_format({'num_format': '0.00', 'border': 1})
-            index_format = workbook.add_format({'bold': True, 'border': 1})
-    
-            # Apply formatting
-            worksheet.set_column(0, 0, 30, index_format)  # Metric names
-            for col_num, value in enumerate(df_transposed.columns.insert(0, 'Metrics')):
-                worksheet.write(0, col_num, value, header_format)
-    
-            for row in range(1, df_transposed.shape[0] + 1):
-                for col in range(1, df_transposed.shape[1] + 1):
-                    worksheet.write(row, col, df_transposed.iloc[row-1, col-1], cell_format)
-    
-        return output.getvalue()
 
             st.download_button(
                 label="Download Results as Excel",
@@ -238,6 +220,5 @@ if uploaded_file:
                 file_name="financial_statistics_table.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
         except Exception as e:
             st.error(f"❌ Error: {e}")
