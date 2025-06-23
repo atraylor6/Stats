@@ -210,8 +210,10 @@ if uploaded_file:
 
             def to_excel(df):
                 output = BytesIO()
+                df_transposed = df.T
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=True, sheet_name='Statistics')
+                    df_transposed.to_excel(writer, index=True, sheet_name='Statistics')
+                output.seek(0)
                 return output.getvalue()
 
             st.download_button(
