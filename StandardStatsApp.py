@@ -184,43 +184,45 @@ def standardStats(df, apiKey, benchmarkColumn):
 # Streamlit UI
 # -----------------------------
 
-st.title("Portfolio Statistics Tool")
+st.title("📊 Portfolio Statistics Tool")
 
 uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
 
-# Predefined FRED API Key
 api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
     try:
-        excel_file = pd.ExcelFile(uploaded_file, engine='openpyxl')
-        sheet = st.selectbox("Select Sheet", excel_file.sheet_names)
-        df = pd.read_excel(excel_file, sheet_name=sheet, engine='openpyxl')
+        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file, engine='openpyxl').sheet_names)
+        df = pd.read_excel(uploaded_file, sheet_name=sheet, engine='openpyxl')
         df.set_index("date", inplace=True)
+
+        st.write("🧪 DataFrame Preview", df.head())
+
+        benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
+
+        if st.button("Generate Statistics"):
+            try:
+                st.write("📊 Benchmark column selected:", benchmarkColumn)
+                stats_df = standardStats(df, api_key, benchmarkColumn)
+                st.success("✅ Statistics generated successfully!")
+                st.dataframe(stats_df)
+
+                def to_excel(df):
+                    output = BytesIO()
+                    df = df.replace([np.inf, -np.inf], np.nan)
+                    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                        df.to_excel(writer, index=True, sheet_name='Statistics')
+                    return output.getvalue()
+
+                st.download_button(
+                    label="📥 Download Results as Excel",
+                    data=to_excel(stats_df),
+                    file_name="financial_statistics_table.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+            except Exception as e:
+                st.error(f"❌ Error while generating stats: {e}")
+
     except Exception as e:
-        st.error(f"❌ Excel read error: {e}")
-        st.stop()
-
-    benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
-
-    if st.button("Generate Statistics"):
-        try:
-            stats_df = standardStats(df, api_key, benchmarkColumn)
-            st.success("✅ Statistics generated successfully!")
-            st.dataframe(stats_df)
-
-            def to_excel(df):
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df.to_excel(writer, index=True, sheet_name='Statistics')
-                return output.getvalue()
-
-            st.download_button(
-                label="Download Results as Excel",
-                data=to_excel(stats_df),
-                file_name="financial_statistics_table.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        except Exception as e:
-            st.error(f"❌ Error: {e}")
+        st.error(f"❌ Failed to read Excel file: {e}")
