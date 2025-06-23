@@ -180,100 +180,70 @@ def standardStats(df, apiKey, benchmarkColumn):
 
     return stats
 
+import streamlit as st
+import pandas as pd
+import numpy as np
+from io import BytesIO
+from fredapi import Fred
+
 # -----------------------------
-# Streamlit UI
+# Your previously defined functions (standardStats, etc.) go here
 # -----------------------------
 
-st.title("Portfolio Statistics Tool")
+def to_excel_formatted(df):
+    output = BytesIO()
 
-uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    # Remove duplicated index entries like repeated 'Standard Deviation'
+    df_cleaned = df[~df.index.duplicated(keep='first')]
 
-# Predefined FRED API Key
-api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
+    # Transpose the DataFrame so metrics are rows
+    df_transposed = df_cleaned.T.reset_index()
+    df_transposed.columns = ['Metrics'] + list(df_transposed.columns[1:])
 
-if uploaded_file:
-    try:
-        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file, engine='openpyxl').sheet_names)
-        df = pd.read_excel(uploaded_file, sheet_name=sheet, engine='openpyxl')
-        df.set_index("date", inplace=True)
-    except Exception as e:
-        st.error(f"❌ Failed to read Excel file: {e}")
-        st.stop()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df_transposed.to_excel(writer, index=False, sheet_name='Statistics', startrow=1)
 
-    benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
+        workbook = writer.book
+        worksheet = writer.sheets['Statistics']
 
-    if st.button("Generate Statistics"):
-        try:
-            stats_df = standardStats(df, api_key, benchmarkColumn)
-            st.success("✅ Statistics generated successfully!")
-            st.dataframe(stats_df)
+        # Define formats
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#44723c',
+            'font_color': 'white',
+            'border': 1
+        })
 
-            def to_excel_formatted(df):
-                output = BytesIO()
+        cell_format = workbook.add_format({
+            'border': 1,
+            'num_format': '0.00'
+        })
 
-                # Remove duplicated index entries like repeated 'Standard Deviation'
-                df_cleaned = df[~df.index.duplicated(keep='first')]
+        alt_row_format = workbook.add_format({
+            'bg_color': '#f2f2f2',
+            'border': 1,
+            'num_format': '0.00'
+        })
 
-                # Transpose the DataFrame so metrics are rows
-                df_transposed = df_cleaned.T.reset_index()
-                df_transposed.columns = ['Metrics'] + list(df_transposed.columns[1:])
+        text_format = workbook.add_format({
+            'border': 1
+        })
 
-                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                    df_transposed.to_excel(writer, index=False, sheet_name='Statistics', startrow=1)
+        # Write header with formatting
+        for col_num, value in enumerate(df_transposed.columns.values):
+            worksheet.write(0, col_num, value, header_format)
+            worksheet.set_column(col_num, col_num, 26)
 
-                    workbook = writer.book
-                    worksheet = writer.sheets['Statistics']
+        # Write data rows with alternating row colors
+        for row_num in range(1, len(df_transposed) + 1):
+            row_format = alt_row_format if row_num % 2 == 0 else cell_format
+            for col_num in range(len(df_transposed.columns)):
+                val = df_transposed.iat[row_num - 1, col_num]
+                if isinstance(val, (float, int)) and not pd.isna(val):
+                    worksheet.write(row_num, col_num, val, row_format)
+                else:
+                    worksheet.write(row_num, col_num, val, text_format)
 
-                    # Define formats
-                    header_format = workbook.add_format({
-                        'bold': True,
-                        'bg_color': '#44723c',
-                        'font_color': 'white',
-                        'border': 1
-                    })
+        worksheet.freeze_panes(1, 1)
 
-                    cell_format = workbook.add_format({
-                        'border': 1,
-                        'num_format': '0.00'
-                    })
-
-                    alt_row_format = workbook.add_format({
-                        'bg_color': '#f2f2f2',
-                        'border': 1,
-                        'num_format': '0.00'
-                    })
-
-                    text_format = workbook.add_format({
-                        'border': 1
-                    })
-
-                    # Write header with formatting
-                    for col_num, value in enumerate(df_transposed.columns.values):
-                        worksheet.write(0, col_num, value, header_format)
-                        worksheet.set_column(col_num, col_num, 26)
-
-                    # Write data rows with alternating row colors
-                    for row_num in range(1, len(df_transposed) + 1):
-                        row_format = alt_row_format if row_num % 2 == 0 else cell_format
-                        for col_num in range(len(df_transposed.columns)):
-                            val = df_transposed.iat[row_num - 1, col_num]
-                            # Use number format if it's a float, otherwise fallback
-                            if isinstance(val, (float, int)) and not pd.isna(val):
-                                worksheet.write(row_num, col_num, val, row_format)
-                            else:
-                                worksheet.write(row_num, col_num, val, text_format)
-
-                    # Freeze panes below header
-                    worksheet.freeze_panes(1, 1)
-
-                return output.getvalue()
-
-            st.download_button(
-                label="Download Results as Excel",
-                data=to_excel_formatted(stats_df),
-                file_name="formatted_financial_statistics.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        except Exception as e:
-            st.error(f"❌ Error: {e}")
+    return output.getvalue()
