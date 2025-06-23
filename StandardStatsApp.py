@@ -193,11 +193,12 @@ api_key = "d0fc5bc2297df338f8f31e08b197b1d9"
 
 if uploaded_file:
     try:
-        sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file, engine='openpyxl').sheet_names)
-        df = pd.read_excel(uploaded_file, sheet_name=sheet, engine='openpyxl')
+        excel_file = pd.ExcelFile(uploaded_file, engine='openpyxl')
+        sheet = st.selectbox("Select Sheet", excel_file.sheet_names)
+        df = pd.read_excel(excel_file, sheet_name=sheet, engine='openpyxl')
         df.set_index("date", inplace=True)
     except Exception as e:
-        st.error(f"❌ Failed to read Excel file: {e}")
+        st.error(f"❌ Excel read error: {e}")
         st.stop()
 
     benchmarkColumn = st.selectbox("Select Benchmark Column", [col for col in df.columns if col != "signal"])
