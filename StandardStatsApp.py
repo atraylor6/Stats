@@ -112,82 +112,89 @@ def downsideCapture(downside, benchmarkColumn):
     ann = downside.apply(annualizedReturn)
     return ann / ann[benchmarkColumn]
 
-def relativeMaxDrawdown(returns, benchmarkColumn):
-    relative_dd = {}
-    for column in returns.columns:
-        if column == benchmarkColumn:
-            continue
-        relative = returns[column] - returns[benchmarkColumn]
-        cum_rel = (1 + relative).cumprod()
-        peak = cum_rel.cummax()
-        drawdown = (cum_rel - peak) / peak
-        relative_dd[column] = drawdown.min() * 100
-    return pd.Series(relative_dd)
-
 def rolling12MOutUnderPerf(returns, benchmarkColumn, threshold=0.01):
     months = 12
     stats = {}
-    for col in returns.columns:
-        if col == benchmarkColumn:
+
+    for column in returns.columns:
+        if column == benchmarkColumn:
             continue
         excess = (
-            (1 + returns[col]).rolling(months).apply(np.prod) -
-            (1 + returns[benchmarkColumn]).rolling(months).apply(np.prod)
+            (1 + returns[column]).rolling(months).apply(np.prod, raw=True) -
+            (1 + returns[benchmarkColumn]).rolling(months).apply(np.prod, raw=True)
         )
-        total = excess.count()
-        stats[col] = {
-            'Pct_Outperform_>1%': (excess > threshold).sum() / total * 100,
-            'Pct_Underperform_<-1%': (excess < -threshold).sum() / total * 100
+
+        total_windows = excess.count()
+        outperform = (excess > threshold).sum()
+        underperform = (excess < -threshold).sum()
+
+        stats[column] = {
+            "Pct_Outperform_>1%": (outperform / total_windows) * 100,
+            "Pct_Underperform_>1%": (underperform / total_windows) * 100
         }
+
     return pd.DataFrame(stats).T
 
-def standardStats(df, apiKey, benchmarkColumn):
-    returns = df.drop(columns=["signal"]) if "signal" in df.columns else df.copy()
-    returns.index = pd.to_datetime(returns.index)
+def relativeMaxDrawdown(returns, benchmarkColumn):
+    relative_dd = {}
+
+    for column in returns.columns:
+        if column == benchmarkColumn:
+            continue
+        relative_returns = returns[column] - returns[benchmarkColumn]
+        cumulative_relative = (1 + relative_returns).cumprod()
+        peak = cumulative_relative.cummax()
+        drawdown = (cumulative_relative - peak) / peak
+        relative_dd[column] = drawdown.min() * 100  # in percent
+
+    return pd.Series(relative_dd)
+
+def standardStats(df, apiKey):
     average_10year_rate = average10Yr(df, apiKey)
     mean_excess_returns = meanExcessReturn(returns, benchmarkColumn)
-    ann_std_dev = annualizedStandardDeviation(returns)
-    skewness = excessReturnSkew(calculateRollingExcessReturns(returns, 36, benchmarkColumn))
-    te = trackingError(returns.drop(columns=[benchmarkColumn]))
-    sharpe = sharpeRatio(returns, average_10year_rate)
-    info = informationRatio(returns, benchmarkColumn)
-    sortino = sortinoRatio(returns, benchmarkColumn)
-    beta = calculateBeta(returns, benchmarkColumn)
-    alpha = calculateAlpha(returns, benchmarkColumn, average_10year_rate, beta)
-    r2 = rSquared(returns, benchmarkColumn)
-    corr = correlation(returns, benchmarkColumn)
-    up_df = upside(returns, benchmarkColumn)
-    down_df = downside(returns, benchmarkColumn)
-    up_capture = upsideCapture(up_df, benchmarkColumn)
-    down_capture = downsideCapture(down_df, benchmarkColumn)
-    rel_dd = relativeMaxDrawdown(returns, benchmarkColumn)
-    rolling_stats = rolling12MOutUnderPerf(returns, benchmarkColumn)
+    rolling_excess_returns_3yr = calculateRollingExcessReturns(returns, rolling_window_3yr, benchmarkColumn)
+    rolling_excess_returns_5yr = calculateRollingExcessReturns(returns, rolling_window_5yr, benchmarkColumn)
+    annualized_std_dev = annualizedStandardDeviation(returns)
+    rolling_excess_returns_3yr_skewness = excessReturnSkew(rolling_excess_returns_3yr)
+    te = trackingError(excessreturns)
+    sharpe_ratios = sharpeRatio(returns, average_10year_rate)
+    info_ratios = informationRatio(returns, benchmarkColumn)
+    sortino_ratios = sortinoRatio(returns, benchmarkColumn)
+    beta_values = calculateBeta(returns, benchmarkColumn)
+    alphas = calculateAlpha(returns, benchmarkColumn, average_10year_rate, beta_values)
+    correlation_values = correlation(returns, benchmarkColumn)
+    r_squared_values = rSquared(returns, benchmarkColumn)
+    upside_df = upside(returns, benchmarkColumn)
+    upside_capture_ratios = upsideCapture(upside_df, benchmarkColumn)
+    downside_df = downside(returns, benchmarkColumn)
+    downside_capture_ratios = downsideCapture(downside_df, benchmarkColumn)
 
-    stats = pd.DataFrame({
+    # New metrics
+    relative_max_drawdown = relativeMaxDrawdown(returns, benchmarkColumn)
+    rolling_out_under_perf = rolling12MOutUnderPerf(returns, benchmarkColumn)
+
+    stats_df = pd.DataFrame({
         "Annualized Return": annualizedReturn(returns),
         "Excess Return": mean_excess_returns,
-        "Standard Deviation": ann_std_dev,
-        "3-Year Rolling Excess Return Skewness": skewness,
+        "Standard Deviation": annualized_std_dev,
+        "Downside Deviation": downsideDeviation(excessreturns),
+        "3-Year Rolling Excess Return Skewness": rolling_excess_returns_3yr_skewness,
         "Tracking Error": te,
-        "Sharpe Ratio": sharpe,
-        "Information Ratio": info,
-        "Sortino Ratio": sortino,
-        "Beta": beta,
-        "Alpha": alpha,
-        "R-Squared": r2,
-        "Correlation": corr,
-        "Upside Capture": up_capture,
-        "Downside Capture": down_capture,
-        "Relative Max Drawdown vs Benchmark": rel_dd,
-        "% Rolling 12M Outperformance > 1%": rolling_stats['Pct_Outperform_>1%'],
-        "% Rolling 12M Underperformance < -1%": rolling_stats['Pct_Underperform_<-1%']
+        "Sharpe Ratio": sharpe_ratios,
+        "Information Ratio": info_ratios,
+        "Sortino Ratio": sortino_ratios,
+        "Beta": beta_values,
+        "Alpha": alphas,
+        "R-Squared": r_squared_values,
+        "Correlation": correlation_values,
+        "Upside Capture": upside_capture_ratios,
+        "Downside Capture": downside_capture_ratios,
+        "Relative Max Drawdown vs Benchmark": relative_max_drawdown,
+        "% Rolling 12M Outperformance > 1%": rolling_out_under_perf["Pct_Outperform_>1%"],
+        "% Rolling 12M Underperformance < -1%": rolling_out_under_perf["Pct_Underperform_>1%"]
     })
 
     return stats
-
-# -----------------------------
-# Streamlit UI
-# -----------------------------
 
 st.title("📊 Portfolio Statistics Tool")
 
