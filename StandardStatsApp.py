@@ -117,8 +117,8 @@ def rolling12MOutUnderPerf(excessreturns, threshold=0.01):
         excess = (1 + excessreturns[column]).rolling(months).apply(np.prod)
         total = excess.count()
         stats[column] = {
-            'Pct_Outperform_>1%': (excess > threshold).sum() / total * 100,
-            'Pct_Underperform_<-1%': (excess < -threshold).sum() / total * 100
+            "Pct_Outperform_>1%": (excess > threshold).sum() / total * 100,
+            "Pct_Underperform_<-1%": (excess < -threshold).sum() / total * 100  # ✅ fixed name
         }
     return pd.DataFrame(stats).T
 
