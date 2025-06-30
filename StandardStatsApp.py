@@ -118,9 +118,10 @@ def rolling12MOutUnderPerf(excessreturns, threshold=0.01):
         total = excess.count()
         stats[column] = {
             "Pct_Outperform_>1%": (excess > threshold).sum() / total * 100,
-            "Pct_Underperform_<-1%": (excess < -threshold).sum() / total * 100  # ✅ fixed name
+            "Pct_Underperform_<-1%": (excess < -threshold).sum() / total * 100  # ✅ FIXED name here
         }
     return pd.DataFrame(stats).T
+
 
 def standardStats(df, apiKey, benchmarkColumn):
     returns = df.drop(columns=["signal"]) if "signal" in df.columns else df.copy()
