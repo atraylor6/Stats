@@ -110,17 +110,29 @@ def relativeMaxDrawdown(excessreturns):
         relative_dd[column] = drawdown.min() * 100
     return pd.Series(relative_dd)
 
-def rolling12MOutUnderPerf(excessreturns, threshold=0.01):
+def rolling12MOutUnderPerf(returns, benchmarkColumn, threshold=0.01):
     months = 12
     stats = {}
-    for column in excessreturns.columns:
-        excess = (1 + excessreturns[column]).rolling(months).apply(np.prod)
-        total = excess.count()
-        stats[column] = {
-            "Pct_Outperform_>1%": (excess > threshold).sum() / total * 100,
-            "Pct_Underperform_<-1%": (excess < -threshold).sum() / total * 100  # ✅ FIXED name here
+
+    # Compute rolling 12M returns for all columns
+    rolling_12m_returns = (1 + returns).rolling(window=months).apply(np.prod, raw=True) - 1
+    rolling_12m_benchmark = rolling_12m_returns[benchmarkColumn]
+
+    for col in returns.columns:
+        if col == benchmarkColumn:
+            continue
+
+        rolling_12m_asset = rolling_12m_returns[col]
+        rolling_excess = rolling_12m_asset - rolling_12m_benchmark
+
+        total = rolling_excess.count()
+        stats[col] = {
+            "Pct_Outperform_>1%": (rolling_excess > threshold).sum() / total * 100,
+            "Pct_Underperform_<-1%": (rolling_excess < -threshold).sum() / total * 100
         }
+
     return pd.DataFrame(stats).T
+
 
 
 def standardStats(df, apiKey, benchmarkColumn):
