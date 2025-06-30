@@ -9,10 +9,24 @@ from fredapi import Fred
 # Define All Helper Functions
 # -----------------------------
 
+signal = df[["signal"]]
+returns = df.drop(columns=["signal"])
+
+benchmarkColumn = "benchmark"
+
+rolling_window_3yr = 36
+rolling_window_5yr = 60
+
 def annualizedReturn(returns):
     productReturns = (1 + returns).prod()
     totalRows = returns.shape[0]
     geometricMeanReturn = (productReturns ** (12 / totalRows)) - 1
+    return geometricMeanReturn * 100
+
+def annualizedReturnOther(returns):
+    productReturns = (1 + returns).prod()
+    totalRows = returns.shape[0]
+    geometricMeanReturn = (productReturns ** (12 / totalRows))
     return geometricMeanReturn * 100
 
 def meanExcessReturn(returns, benchmarkColumn):
@@ -23,20 +37,30 @@ def meanExcessReturn(returns, benchmarkColumn):
 
 def calculateRollingExcessReturns(data, window_size, benchmark_column):
     rollingExcessReturns = pd.DataFrame()
+    
     for column in data.columns:
         rollingExcessReturns[f"{column}"] = (
             data[column].rolling(window=window_size).apply(
                 lambda x: annualizedReturn(x)
-            ).dropna()
-        ) - data[benchmark_column].rolling(window=window_size).apply(
+            ).dropna()  
+        ) - data[benchmarkColumn].rolling(window=window_size).apply(
             lambda x: annualizedReturn(x)
         ).dropna()
+    
     return rollingExcessReturns
 
 def annualizedStandardDeviation(returns):
     monthlyStd = returns.std()
     annualStd = (monthlyStd * (12 ** 0.5)) * 100
     return annualStd
+
+excessreturns = returns.copy()
+
+for column in excessreturns.columns:
+    if column != benchmarkColumn:
+        excessreturns[column] = returns[column] - returns[benchmarkColumn]
+
+excessreturns = excessreturns.drop(columns=[benchmarkColumn])
 
 def downsideDeviation(excessreturns):
     downsideSquared = (excessreturns[excessreturns < 0] ** 2).sum()
@@ -51,66 +75,83 @@ def excessReturnSkew(excessreturns):
     return skewness_values
 
 def trackingError(excessreturns):
-    return (excessreturns.std() * np.sqrt(12)) * 100
+    tracking_error = (excessreturns.std() * np.sqrt(12)) * 100
+    return tracking_error
 
 def average10Yr(df, apiKey):
-    try:
-        from fredapi import Fred
-        fred = Fred(api_key=apiKey)
-        startDate = df.index.min().strftime('%Y-%m-%d')
-        endDate = df.index.max().strftime('%Y-%m-%d')
-        data = fred.get_series('GS10', startDate, endDate)
-        return data.mean()
-    except Exception as e:
-        return 3.5  # fallback annual yield in %
+    fred = Fred(api_key=apiKey)
+    startDate = df.index.min().strftime('%Y-%m-%d')
+    endDate = df.index.max().strftime('%Y-%m-%d')
+    seriesId = 'GS10'
+    data = fred.get_series(seriesId, startDate, endDate)
+    averageRate = data.mean()
+    return averageRate
 
+average_10year_rate = average10Yr(df, apiKey)
 
-def sharpeRatio(returns, avg10yr):
-    ann_return = returns.apply(annualizedReturn)
-    excess = ann_return - avg10yr
+def sharpeRatio(returns, average10year):
+    annualized_returns = returns.apply(annualizedReturn)
+    excess_return = annualized_returns - average10year
     std_dev = annualizedStandardDeviation(returns)
-    return excess / std_dev
+    sharpe_ratio = excess_return / std_dev
+    return sharpe_ratio
 
 def informationRatio(returns, benchmarkColumn):
     excess_return = meanExcessReturn(returns, benchmarkColumn)
-    te = trackingError(returns.drop(columns=[benchmarkColumn]))
-    return excess_return / te
+    te = trackingError(excessreturns)
+    information_ratio = excess_return / te
+    return information_ratio
 
 def sortinoRatio(returns, benchmarkColumn):
     excess_return = meanExcessReturn(returns, benchmarkColumn)
-    dd = downsideDeviation(returns.drop(columns=[benchmarkColumn]))
-    return excess_return / dd
+    dd = downsideDeviation(excessreturns)
+    sortino_ratio = excess_return / dd
+    return sortino_ratio
 
 def calculateBeta(returns, benchmarkColumn):
     cov_matrix = returns.cov()
     benchmark_var = cov_matrix[benchmarkColumn][benchmarkColumn]
     benchmark_cov = cov_matrix[benchmarkColumn]
-    return benchmark_cov / benchmark_var
+    beta = benchmark_cov / benchmark_var
+    return beta
 
-def calculateAlpha(returns, benchmarkColumn, avg10yr, beta):
-    ann_returns = returns.apply(annualizedReturn)
-    bench_ann_return = ann_returns[benchmarkColumn]
-    return ann_returns - ((bench_ann_return - avg10yr) * beta + avg10yr)
+def calculateAlpha(returns, benchmarkColumn, average10year, beta_values):
+    annualized_returns = returns.apply(annualizedReturn)
+    benchmark_annualized_return = annualized_returns[benchmarkColumn]
+    alpha = annualized_returns - ((benchmark_annualized_return - average10year) * beta_values + average10year)
+    return alpha
 
 def correlation(df, benchmarkColumn):
     return df.corr()[benchmarkColumn]
 
 def rSquared(df, benchmarkColumn):
-    return correlation(df, benchmarkColumn) ** 2
+    correlation_values = correlation(df, benchmarkColumn)
+    r_squared_values = correlation_values ** 2
+    return r_squared_values
 
 def upside(returns, benchmarkColumn):
-    return returns[returns[benchmarkColumn] > 0]
+    upside_df = returns[returns[benchmarkColumn] > 0].copy()
+    return upside_df
+
+upside_df = upside(returns, benchmarkColumn)
 
 def upsideCapture(upside, benchmarkColumn):
-    ann = upside.apply(annualizedReturn)
-    return ann / ann[benchmarkColumn]
+    annualized_returns = upside.apply(annualizedReturn)
+    benchmark_annualized_return = annualized_returns[benchmarkColumn]
+    upside_capture_ratios = annualized_returns / benchmark_annualized_return
+    return upside_capture_ratios
 
 def downside(returns, benchmarkColumn):
-    return returns[returns[benchmarkColumn] < 0]
+    downside_df = returns[returns[benchmarkColumn] < 0].copy()
+    return downside_df
+
+downside_df = downside(returns, benchmarkColumn)
 
 def downsideCapture(downside, benchmarkColumn):
-    ann = downside.apply(annualizedReturn)
-    return ann / ann[benchmarkColumn]
+    annualized_returns = downside.apply(annualizedReturn)
+    benchmark_annualized_return = annualized_returns[benchmarkColumn]
+    downside_capture_ratios = annualized_returns / benchmark_annualized_return
+    return downside_capture_ratios
 
 def rolling12MOutUnderPerf(returns, benchmarkColumn, threshold=0.01):
     months = 12
