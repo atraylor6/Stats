@@ -1,9 +1,3 @@
-
-def average10Yr_dummy():
-    return 3.5  # You can later replace with FRED API
-
-# ---- Stat functions ----
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -46,10 +40,11 @@ def annualizedStandardDeviation(returns):
 
 def downsideDeviation(excessreturns):
     downsideSquared = (excessreturns[excessreturns < 0] ** 2).sum()
-    numValues = (excessreturns < 0).sum()
+    numValues = (excessreturns < 0).shape[0]
     dev = downsideSquared / numValues
     sqrtDev = np.sqrt(dev)
-    return sqrtDev * np.sqrt(12) * 100
+    annualizedSqrtDev = sqrtDev * np.sqrt(12)
+    return annualizedSqrtDev * 100
 
 def excessReturnSkew(excessreturns):
     skewness_values = excessreturns.apply(skew, nan_policy='omit')
@@ -58,8 +53,17 @@ def excessReturnSkew(excessreturns):
 def trackingError(excessreturns):
     return (excessreturns.std() * np.sqrt(12)) * 100
 
-def average10Yr():
-    return 3.5  # You can later replace with FRED API
+def average10Yr(df, apiKey):
+    try:
+        from fredapi import Fred
+        fred = Fred(api_key=apiKey)
+        startDate = df.index.min().strftime('%Y-%m-%d')
+        endDate = df.index.max().strftime('%Y-%m-%d')
+        data = fred.get_series('GS10', startDate, endDate)
+        return data.mean()
+    except Exception as e:
+        return 3.5  # fallback annual yield in %
+
 
 def sharpeRatio(returns, avg10yr):
     ann_return = returns.apply(annualizedReturn)
@@ -67,12 +71,14 @@ def sharpeRatio(returns, avg10yr):
     std_dev = annualizedStandardDeviation(returns)
     return excess / std_dev
 
-def informationRatio(excess_return, excessreturns):
-    te = trackingError(excessreturns)
+def informationRatio(returns, benchmarkColumn):
+    excess_return = meanExcessReturn(returns, benchmarkColumn)
+    te = trackingError(returns.drop(columns=[benchmarkColumn]))
     return excess_return / te
 
-def sortinoRatio(excess_return, excessreturns):
-    dd = downsideDeviation(excessreturns)
+def sortinoRatio(returns, benchmarkColumn):
+    excess_return = meanExcessReturn(returns, benchmarkColumn)
+    dd = downsideDeviation(returns.drop(columns=[benchmarkColumn]))
     return excess_return / dd
 
 def calculateBeta(returns, benchmarkColumn):
@@ -197,7 +203,6 @@ if uploaded_file:
         sheet = st.selectbox("Select Sheet", pd.ExcelFile(uploaded_file, engine='openpyxl').sheet_names)
         df = pd.read_excel(uploaded_file, sheet_name=sheet, engine='openpyxl')
         df.set_index("date", inplace=True)
-        df.index = pd.to_datetime(df.index)
 
         st.write("🧪 DataFrame Preview", df.head())
 
@@ -212,19 +217,21 @@ if uploaded_file:
 
                 def to_excel(df):
                     output = BytesIO()
-                    df_clean = df.replace([np.inf, -np.inf], np.nan).fillna("")
+                    df_clean = df.replace([np.inf, -np.inf], np.nan)  # Clean up invalid values
+                    df_clean = df_clean.fillna("")  # Fill NaNs to prevent Excel XML error
                     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                         df_clean.to_excel(writer, index=True, sheet_name='Statistics')
                     output.seek(0)
                     return output.read()
 
                 st.download_button(
-                    label="📥 Download Results as Excel",
+                    label="Download Results as Excel",
                     data=to_excel(stats_df),
                     file_name="financial_statistics_table.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
             except Exception as e:
                 st.error(f"❌ Error while generating stats: {e}")
+
     except Exception as e:
         st.error(f"❌ Failed to read Excel file: {e}")
