@@ -161,7 +161,7 @@ def standardStats(df, apiKey, benchmarkColumn):
     up_capture = upsideCapture(up_df, benchmarkColumn)
     down_capture = downsideCapture(down_df, benchmarkColumn)
     rel_dd = relativeMaxDrawdown(excessreturns)
-    rolling_stats = rolling12MOutUnderPerf(excessreturns)
+    rolling_stats = rolling12MOutUnderPerf(returns, benchmarkColumn)
 
     stats = pd.DataFrame({
         "Annualized Return": annualizedReturn(returns),
