@@ -9,14 +9,6 @@ from fredapi import Fred
 # Define All Helper Functions
 # -----------------------------
 
-signal = df[["signal"]]
-returns = df.drop(columns=["signal"])
-
-benchmarkColumn = "benchmark"
-
-rolling_window_3yr = 36
-rolling_window_5yr = 60
-
 def annualizedReturn(returns):
     productReturns = (1 + returns).prod()
     totalRows = returns.shape[0]
